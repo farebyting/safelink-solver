@@ -1,14 +1,7 @@
 # safelink-solver
 
 Resolves SafelinkU / `sfl.gl` ad-links to their final destination over plain HTTP.
-No browser, no headless Chrome, no JS execution.
-
-## Why
-
-Ad-link gateways like SafelinkU serve a chain of decoy pages and require a
-cookie handshake plus two timed "verify" rounds before they hand over a signed
-ticket to the destination. Browsers do this invisibly through JavaScript. This
-script replays the exact same protocol with `requests`.
+No browser, no JavaScript, no timers.
 
 ## Install
 
@@ -22,48 +15,33 @@ pip install -r requirements.txt
 python solver.py https://sfl.gl/cgcpp
 ```
 
-Output is the resolved URL on stdout, progress on stderr:
-
-```
-[1] ray_id:  EccmKrFg07vZFVMeoKpZvlKfa6IS15tF  alias:  cgcpp
-[2] landed:  https://app.khaddavi.net/aplikasi-game-puzzle-.../
-[3.0] session:  {'step': 1, 'fb': False, 'captcha': None, 'passcode': False}
-[3.0] waiting 10s
-[3.0] verify:  {'message': 'OK', 'target': '...'}
-[3.1] session:  {'step': 2, 'fb': False}
-[3.1] waiting 3s
-[4] requesting go ticket
-=> https://github.com/thewoldaa
-```
-
-Quiet mode for scripting:
+Prints the destination. As a library:
 
 ```python
-from solver import SafelinkSolver
-url = SafelinkSolver(verbose=False).resolve("https://sfl.gl/cgcpp")
+from solver import resolve
+resolve("https://sfl.gl/cgcpp")   # -> 'https://github.com/...'
 ```
 
-## How the handshake works
+## How it works
 
-| Step | Endpoint | Notes |
-|------|----------|-------|
+| Step | Request | Purpose |
+|------|---------|---------|
 | 1 | `GET sfl.gl/<alias>` | Page carries `ray_id` + `alias` in a hidden form |
-| 2 | `GET app.khaddavi.net/redirect.php` | Sets `__session`, `SESSION`, `XSRF-TOKEN`, `tt` |
-| 3 | `POST /api/session` | `_token` = first 39 chars of `XSRF-TOKEN` + `#` + base64(sha256(fingerprint)) |
-| 4 | `POST /api/verify` | `{"_a": 0}` after the server-enforced wait |
-| 5 | `POST /api/go` | `{"key", "size", "ado"}` returns the `sfl.gl/ready/go` ticket |
-| 6 | `GET <ticket>` | Destination sits in a plain `window.location.href` string |
+| 2 | `GET app.khaddavi.net/redirect.php?ray_id&alias` | Sets the session cookies |
+| 3 | `POST /api/verify` | Sends `X-XSRF-TOKEN` header, `{"_a": 0}` |
+| 4 | `POST /api/go` | Returns the `sfl.gl/ready/go` ticket |
+| 5 | `GET <ticket>` | Destination is in a `window.location.href` string |
 
-The fingerprint blob is arbitrary — the server only checks that it hashes
-consistently into the token. The 10s / 3s waits are enforced server-side, so
-they cannot be skipped.
+The front-end also calls `/api/session` and waits 10s + 3s between verify rounds.
+Those are cosmetic — the API accepts the raw XSRF header directly, so this tool
+skips both. Full resolve is ~4 seconds.
 
-## Limitations
+## Notes
 
-- Links gated behind a passcode or Cloudflare Turnstile raise instead of guessing.
-- Site-specific: the ad host (`app.khaddavi.net`) and path layout are tied to
-  this particular SafelinkU instance. Other deployments use the same protocol
-  with different hosts.
+- Link-specific: `app.khaddavi.net` is the ad host for this SafelinkU instance.
+  Other deployments run the same protocol on different hosts.
+- If a link is gated behind a passcode or Turnstile, `/api/go` returns no `url`
+  and the script fails loudly.
 
 ## License
 
