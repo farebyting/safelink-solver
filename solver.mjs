@@ -1,20 +1,13 @@
 #!/usr/bin/env bun
-const u = process.argv[2], H = "https://app.khaddavi.net", jar = {};
-const take = r => r.headers.getSetCookie().forEach(c => {
-  const kv = c.split(";")[0], i = kv.indexOf("=");
-  jar[kv.slice(0, i)] = kv.slice(i + 1);
-});
-const ck = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
-
-const r0 = await fetch(u); take(r0);
-const p = await r0.text();
-const q = k => p.match(new RegExp(`name="${k}" value="([^"]+)"`))[1];
-const rd = `${H}/redirect.php?ray_id=${q("ray_id")}&alias=${q("alias")}`;
-const r1 = await fetch(rd, { redirect: "manual" }); take(r1);
-const page = new URL(r1.headers.get("location"), rd).href;
-take(await fetch(page, { headers: { cookie: ck() } }));
-const o = { cookie: ck(), "content-type": "application/json", referer: page,
-  "x-xsrf-token": decodeURIComponent(jar["XSRF-TOKEN"]), origin: H };
-await fetch(`${H}/api/verify`, { method: "POST", headers: o, body: '{"_a":0}' });
-const g = await fetch(`${H}/api/go`, { method: "POST", headers: o, body: '{"key":1,"size":"3840.2160"}' }).then(r => r.json());
-console.log((await (await fetch(g.url)).text()).match(/window\.location\.href = "([^"]+)"/)[1].replaceAll("\\/", "/"));
+const H = "https://app.khaddavi.net", j = {};
+const F = async (u, o = {}) => {
+  const r = await fetch(new URL(u, H), { ...o, headers: { cookie: Object.entries(j).map(e => e.join("=")).join("; "), ...o.h } });
+  r.headers.getSetCookie().forEach(c => { const [k, ...v] = c.split(";")[0].split("="); j[k] = v.join("="); });
+  return r;
+};
+const P = (p, b) => F(p, { method: "POST", body: b, h: { "content-type": "application/json", "x-xsrf-token": j["XSRF-TOKEN"] } }).then(r => r.json());
+const h = await (await F(process.argv[2])).text(), m = k => h.match(RegExp(`name="${k}" value="([^"]+)"`))[1];
+const r = await F(`/redirect.php?ray_id=${m("ray_id")}&alias=${m("alias")}`, { redirect: "manual" });
+await F(r.headers.get("location"));
+await P("/api/verify", '{"_a":0}');
+console.log((await (await F((await P("/api/go", '{"key":1,"size":"3840.2160"}')).url)).text()).match(/window\.location\.href = "(.+?)"/)[1].replace(/\\/g, ""));
