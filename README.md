@@ -8,7 +8,7 @@ No browser, no JavaScript execution, no timers.
 | File | Runtime | Lines | Chars | Time* |
 |---|---|---|---|---|
 | `solver.pl` | Perl 5.14+ (core modules only) | 9 | 786 | ~3.4s |
-| `solver.mjs` | Bun | 12 | 824 | ~0.8-2.7s |
+| `solver.mjs` | Bun | 5 | 747 | ~1.8-2.7s |
 | `solver.php` | PHP 8 + curl | 13 | 922 | ~2.6-3.9s |
 | `solver.py` | Python 3 + `requests` | 38 | 1334 | ~1.7s |
 
@@ -52,6 +52,8 @@ Each prints the destination URL.
 - `ray_id` must be the real one from step 1. A fabricated value returns
   `{"message":"Page expired"}`.
 - Step 3 cannot be skipped: it is the only response that issues `XSRF-TOKEN`.
+- `__session` can be set by hand to `ray_id`, which lets step 2 and 3 collapse
+  into a single auto-followed request.
 - `/api/verify` must run before `/api/go`, and the POST body must be sent with
   `content-type: application/json`, or the server returns HTML.
 
